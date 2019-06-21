@@ -11,6 +11,7 @@ using namespace std;
 using namespace cv::xfeatures2d;
 
 vector<KeyPoint> keypoint_ROI(vector<KeyPoint> keypoint,int x,int y, int w, int h);
+vector<DMatch> matches_larger(vector<DMatch> good_matches, int size_diff, vector<KeyPoint> kp1, vector<KeyPoint> kp2);
 
 int main(){
 /*	VideoCapture video("VideoTest.avi");
@@ -52,26 +53,30 @@ int main(){
 	Mat img_2 = imread("frame505.jpg");
 	Mat img_kp;
 
-	Ptr<ORB> orb = ORB::create();
+	int minHessian = 400;
+	Ptr<SURF> detector = SURF::create(minHessian);
+	Ptr<SURF> extractor = SURF::create();
 	
 	vector<KeyPoint> tmp_keypoint1, tmp_keypoint2;
 	vector<KeyPoint> keypoint1, keypoint2;
 	
 
-    orb-> detect(img_1, tmp_keypoint1);
-    orb -> detect(img_2, tmp_keypoint2);
+    detector -> detect(img_1, tmp_keypoint1);
+    detector -> detect(img_2, tmp_keypoint2);
 
     keypoint1 = keypoint_ROI(tmp_keypoint1,x,y,w,h);
     keypoint2 = keypoint_ROI(tmp_keypoint2,x,y,w,h);
 
 	Mat descriptors_1, descriptors_2;
 
-    orb-> compute(img_1, keypoint1, descriptors_1);
-    orb -> compute(img_2, keypoint2, descriptors_2);
+    extractor-> compute(img_1, keypoint1, descriptors_1);
+    extractor -> compute(img_2, keypoint2, descriptors_2);
 
     vector<DMatch> matches;
-    BFMatcher bfMatcher(NORM_HAMMING);
-    bfMatcher.match(descriptors_1, descriptors_2, matches);
+	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce");
+	matcher->match(descriptors_1, descriptors_2, matches);
+
+
 
 
 	double max_dist = 0; double min_dist = 100;
@@ -92,10 +97,13 @@ int main(){
 			good_matches.push_back(matches[i]);
 		}
 	}
+	vector<DMatch> filter_matches;
+	int size_diff = 13;
+	filter_matches = matches_larger(good_matches, size_diff, keypoint1, keypoint2);
 
 	Mat img_matches;
 	drawMatches( img_1, keypoint1, img_2, keypoint2,
-				 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+				 filter_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
 				 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 	imshow("Good Matches", img_matches);
 
@@ -113,4 +121,22 @@ vector<KeyPoint> keypoint_ROI(vector<KeyPoint> keypoint, int x, int y, int w, in
 		}
 	}
 	return ROI_keypoint;
+}
+
+vector<DMatch> matches_larger(vector<DMatch> good_matches, int size_diff, vector<KeyPoint> kp1, vector<KeyPoint> kp2){
+	vector<DMatch> filter_matches;
+	cout << "previous size:" << good_matches.size() << endl;
+	for(int i = 0; i < good_matches.size(); i++){
+		float size1 = kp1[good_matches[i].queryIdx].size;
+		float size2 = kp2[good_matches[i].trainIdx].size;
+		cout << "size1:" << size1 << endl;
+		cout << "size2:" << size2 << endl;
+		cout << "size1 - size2:" << size1-size2 << endl;
+		cout << "----------------" << endl;
+		if(size2 - size1 > size_diff){
+			filter_matches.push_back(good_matches[i]);
+		}
+	}
+	cout << "later size:" << filter_matches.size() << endl;
+	return filter_matches;
 }
