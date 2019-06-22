@@ -12,6 +12,9 @@ using namespace cv::xfeatures2d;
 
 vector<KeyPoint> keypoint_ROI(vector<KeyPoint> keypoint,int x,int y, int w, int h);
 vector<DMatch> matches_larger(vector<DMatch> good_matches, int size_diff, vector<KeyPoint> kp1, vector<KeyPoint> kp2);
+void find_keypoint(Mat img1, vector<KeyPoint> &keypoint1, Mat img2, vector<KeyPoint> &keypoint2);
+void find_matches(Mat img_1, Mat img_2,vector<KeyPoint> keypoint1,vector<KeyPoint> keypoint2, int size_diff, float sensitivity, vector<DMatch> &filter_matches);
+void detect_obstacle(Mat img_1, Mat img_2);
 
 int main(){
 /*	VideoCapture video("VideoTest.avi");
@@ -44,30 +47,38 @@ int main(){
 		}
 
 	}*/
-	int x = 200;
-	int y = 100;
-	int w = 250;
-	int h = 150;
+
 
 	Mat img_1 = imread("frame436.jpg");
 	Mat img_2 = imread("frame505.jpg");
-	Mat img_kp;
-
-	int minHessian = 400;
-	Ptr<SURF> detector = SURF::create(minHessian);
-	Ptr<SURF> extractor = SURF::create();
 	
-	vector<KeyPoint> tmp_keypoint1, tmp_keypoint2;
+	detect_obstacle(img_1,img_2);
+
+
+	return 1;
+}
+void detect_obstacle(Mat img_1, Mat img_2){
 	vector<KeyPoint> keypoint1, keypoint2;
-	
+	vector<DMatch> filter_matches;
+	int size_diff = 13;
+	float sensitivity = 10.0;
+	Mat img_matches;
 
-    detector -> detect(img_1, tmp_keypoint1);
-    detector -> detect(img_2, tmp_keypoint2);
+	find_keypoint(img_1,keypoint1, img_2, keypoint2);
+	find_matches(img_1,img_2,keypoint1,keypoint2, size_diff, sensitivity, filter_matches);
 
-    keypoint1 = keypoint_ROI(tmp_keypoint1,x,y,w,h);
-    keypoint2 = keypoint_ROI(tmp_keypoint2,x,y,w,h);
+	drawMatches( img_1, keypoint1, img_2, keypoint2,
+			 filter_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+			 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 
+	imshow("Good Matches", img_matches);
+
+	waitKey(0);
+}
+
+void find_matches(Mat img_1, Mat img_2,vector<KeyPoint> keypoint1,vector<KeyPoint> keypoint2, int size_diff, float sensitivity, vector<DMatch> &filter_matches){
 	Mat descriptors_1, descriptors_2;
+	Ptr<SURF> extractor = SURF::create();
 
     extractor-> compute(img_1, keypoint1, descriptors_1);
     extractor -> compute(img_2, keypoint2, descriptors_2);
@@ -75,8 +86,6 @@ int main(){
     vector<DMatch> matches;
 	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce");
 	matcher->match(descriptors_1, descriptors_2, matches);
-
-
 
 
 	double max_dist = 0; double min_dist = 100;
@@ -91,25 +100,30 @@ int main(){
 	printf("--Min dist : %f \n", min_dist);
 
 	vector< DMatch > good_matches;
-
 	for(int i = 0; i < descriptors_1.rows; i++){
-		if(matches[i].distance <= max(10*min_dist, 0.02)){
+		if(matches[i].distance <= max(sensitivity*min_dist, 0.02)){
 			good_matches.push_back(matches[i]);
 		}
 	}
-	vector<DMatch> filter_matches;
-	int size_diff = 13;
+
 	filter_matches = matches_larger(good_matches, size_diff, keypoint1, keypoint2);
+}
 
-	Mat img_matches;
-	drawMatches( img_1, keypoint1, img_2, keypoint2,
-				 filter_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-				 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-	imshow("Good Matches", img_matches);
+void find_keypoint(Mat img1, vector<KeyPoint> &keypoint1, Mat img2, vector<KeyPoint> &keypoint2){
+	int minHessian = 400;
+	vector<KeyPoint> tmp_keypoint1, tmp_keypoint2;
+	int x = 200;
+	int y = 100;
+	int w = 250;
+	int h = 150;
 
-	waitKey(0);
+	Ptr<SURF> detector = SURF::create(minHessian);
+	
+    detector -> detect(img1, tmp_keypoint1);
+    detector -> detect(img2, tmp_keypoint2);
 
-	return 1;
+    keypoint1 = keypoint_ROI(tmp_keypoint1,x,y,w,h);
+    keypoint2 = keypoint_ROI(tmp_keypoint2,x,y,w,h);
 }
 
 vector<KeyPoint> keypoint_ROI(vector<KeyPoint> keypoint, int x, int y, int w, int h){
@@ -133,7 +147,7 @@ vector<DMatch> matches_larger(vector<DMatch> good_matches, int size_diff, vector
 		cout << "size2:" << size2 << endl;
 		cout << "size1 - size2:" << size1-size2 << endl;
 		cout << "----------------" << endl;
-		if(size2 - size1 > size_diff){
+		if(abs(size2 - size1) > size_diff){
 			filter_matches.push_back(good_matches[i]);
 		}
 	}
