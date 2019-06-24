@@ -18,36 +18,52 @@ void detect_obstacle(Mat img_1, Mat img_2);
 vector<bool> template_matching(Mat img_1, Mat img_2, vector<KeyPoint> keypoint_1, vector<KeyPoint> keypoint_2, vector<DMatch> matches);
 
 int main(){
-/*	VideoCapture video("chessBoard.avi");
+	VideoCapture video("chessBoard.avi");
 	Mat frame;
 	int index = 0;
+	bool detect_mode = false;
+	vector<Mat> previous_frame;
+	int n_skip = 20;
 
 	while(1){
 		video >> frame;
+		previous_frame.push_back(frame.clone());
+
 		if(frame.empty()){
 			cout << "no video!" << endl;
 			break;
 		}
-		index ++;
 
-		imwrite("./chessBoard/frame"+to_string(index)+".jpg",frame);
-		imshow("video",frame);
-		waitKey(33);
 
-		if( index > 450){
-			cout << "save " << index << "image" << endl;
-			imwrite("frame"+to_string(index)+".jpg",frame);
-			//waitKey(0);
+		if( index > n_skip){
+			detect_mode = true;
 		}
 
+		if(detect_mode && index > 400){
+			//cout << "previous_frame:" << previous_frame.size() << endl;
+			Mat img_1 = previous_frame[index - n_skip];
+			Mat img_2 = frame;
 
-	}*/
+			cvtColor(img_1,img_1,CV_BGR2GRAY);
+			cvtColor(img_2,img_2,CV_BGR2GRAY);
 
+			cout << "current index:" << index << endl;
 
+	
+			detect_obstacle(img_1,img_2);
+		}
+
+		index ++;
+		
+		imshow("video",frame);
+		waitKey(33);
+	}
+
+/*
 	Mat img_1 = imread("./H/frame533.jpg",0);
 	Mat img_2 = imread("./H/frame553.jpg",0);
 	
-	detect_obstacle(img_1,img_2);
+	detect_obstacle(img_1,img_2);*/
 
 
 	return 1;
@@ -78,6 +94,7 @@ void detect_obstacle(Mat img_1, Mat img_2){
 			obstacle_keypoint.push_back(keypoint2[filter_matches[i].trainIdx]);
 		}
 	}
+
 	
 	Mat img_obstacle;
     drawKeypoints(img_2, obstacle_keypoint, img_obstacle, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
@@ -113,8 +130,8 @@ void find_matches(Mat img_1, Mat img_2,vector<KeyPoint> keypoint1,vector<KeyPoin
 		if( dist > max_dist) max_dist = dist;
 	}
 
-	printf("--Max dist : %f \n", max_dist);
-	printf("--Min dist : %f \n", min_dist);
+/*	printf("--Max dist : %f \n", max_dist);
+	printf("--Min dist : %f \n", min_dist);*/
 
 	vector< DMatch > good_matches;
 	for(int i = 0; i < descriptors_1.rows; i++){
